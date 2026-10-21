@@ -1,0 +1,90 @@
+name: Release
+
+# Every merge to main releases each affected service: image, tag and GitHub Release.
+# Nothing is deployed here; deploy.yaml is dispatched per service and waits for approval.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  packages: write
+  actions: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      any: ${{ steps.plan.outputs.any }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      plan: ${{ steps.plan.outputs.plan }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew --quiet projectGraph :tools:release:installDist
+      - id: plan
+        run: |
+          tools/release/build/install/release/bin/release plan --graph build/project-graph.tsv > plan.json
+          cat plan.json
+          echo "plan=$(cat plan.json)" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(jq -c '{include: .releases}' plan.json)" >> "$GITHUB_OUTPUT"
+          echo "any=$(jq '.releases | length > 0' plan.json)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.any == 'true'
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}-${{ matrix.service }}" >> "$GITHUB_ENV"
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          provenance: false # keep the tag a plain single-arch manifest
+          build-args: |
+            APP=${{ matrix.service }}
+            VERSION=${{ matrix.version }}
+          tags: ${{ env.IMAGE }}:${{ matrix.version }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+
+  release:
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PLAN: ${{ needs.plan.outputs.plan }}
+    steps:
+      - name: Create releases and request deployments
+        run: |
+          jq -r '.releases[] | [.service, .version, .tag, (.previous // "")] | @tsv' <<< "$PLAN" |
+          while IFS=$'\t' read -r service version tag previous; do
+            # idempotent so a re-run of this job does not fail on releases that already exist
+            if ! gh release view "$tag" > /dev/null 2>&1; then
+              gh release create "$tag" --target "$GITHUB_SHA" --title "$service $version" --generate-notes \
+                ${previous:+--notes-start-tag "$service/v$previous"}
+            fi
+            gh workflow run deploy.yaml -f service="$service" -f version="$version"
+          done

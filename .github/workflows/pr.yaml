@@ -1,0 +1,47 @@
+name: Pull request
+
+on: pull_request
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE: tools/release/build/install/release/bin/release
+      BASE: origin/${{ github.base_ref }}
+      TITLE: ${{ github.event.pull_request.title }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the release tool reads tags and history
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Build the release tool and project graph
+        run: ./gradlew --quiet projectGraph :tools:release:installDist
+
+      - name: Check PR title (squash commit message)
+        run: $RELEASE check-title "$TITLE"
+
+      - name: Build and test affected projects
+        run: |
+          TASKS=$($RELEASE affected --graph build/project-graph.tsv --base "$BASE" | xargs)
+          echo "Affected: ${TASKS:-none}"
+          if [ -n "$TASKS" ]; then ./gradlew $TASKS; fi
+
+      - name: Comment release preview
+        run: |
+          $RELEASE plan --graph build/project-graph.tsv --format markdown --pr-title "$TITLE" --pr-base "$BASE" > preview.md
+          gh pr comment ${{ github.event.number }} --body-file preview.md --edit-last --create-if-none

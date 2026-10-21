@@ -1,0 +1,6 @@
+# Repo-specific content that derived repositories own; everything else syncs from the template.
+apps/
+packages/
+README.md
+gradle/libs.versions.toml
+.templatesyncignore

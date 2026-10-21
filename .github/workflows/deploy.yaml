@@ -1,0 +1,100 @@
+name: Deploy
+
+# Started by release.yaml for every release (it then waits for approval on the `production`
+# environment) and by hand for rollbacks: pick any existing version and tick `rollback`.
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Service name, e.g. hello
+        required: true
+        type: string
+      version:
+        description: Released version, e.g. 1.2.3
+        required: true
+        type: string
+      rollback:
+        description: Allow deploying an older version than the one currently in gitops
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write # Tailscale authentication
+
+env:
+  SERVICE: ${{ inputs.service }}
+  VERSION: ${{ inputs.version }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production # required reviewers on this environment are the approval gate
+    steps:
+      - uses: actions/checkout@v7 # for .github/scripts
+
+      - name: Validate inputs
+        run: |
+          [[ "$SERVICE" =~ ^[a-z0-9-]+$ ]] || { echo "invalid service: $SERVICE"; exit 1; }
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid version: $VERSION"; exit 1; }
+          echo "PROJECT=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_ENV"
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}-$SERVICE" >> "$GITHUB_ENV"
+
+      - name: Resolve image digest
+        run: |
+          DIGEST=$(docker buildx imagetools inspect "$IMAGE:$VERSION" --format '{{.Manifest.Digest}}')
+          echo "Resolved $IMAGE:$VERSION to $DIGEST"
+          echo "IMAGE_REF=$IMAGE:$VERSION@$DIGEST" >> "$GITHUB_ENV"
+
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: homelab-gitops
+
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/homelab-gitops
+          token: ${{ steps.app-token.outputs.token }}
+          path: gitops
+
+      - name: Update image in gitops
+        id: gitops
+        env:
+          ROLLBACK: ${{ inputs.rollback }}
+        run: .github/scripts/gitops-set-image.sh gitops "apps/$PROJECT/$SERVICE" "$IMAGE" "$IMAGE_REF" "$VERSION" "$ROLLBACK"
+
+      - name: Commit and push
+        if: steps.gitops.outputs.skip != 'true'
+        working-directory: gitops
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "gitops already references $IMAGE_REF"
+          else
+            git commit -m "deploy($PROJECT/$SERVICE): $VERSION"
+            # other services may push at the same time
+            for attempt in 1 2 3; do
+              git push && break
+              git pull --rebase
+            done
+          fi
+          echo "REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - uses: tailscale/github-action@v4
+        if: steps.gitops.outputs.skip != 'true'
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_CLIENT_SECRET }}
+          tags: tag:ci
+
+      - name: Sync ArgoCD and wait until healthy
+        if: steps.gitops.outputs.skip != 'true'
+        env:
+          ARGOCD_SERVER_URL: ${{ secrets.ARGOCD_SERVER_URL }}
+          ARGOCD_TOKEN: ${{ secrets.ARGOCD_TOKEN }}
+        run: .github/scripts/argocd-sync-wait.sh "$PROJECT-$SERVICE" "$REVISION"

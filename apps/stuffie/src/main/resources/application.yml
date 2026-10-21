@@ -1,0 +1,49 @@
+stuffie:
+  spring:
+    swagger:
+      title: stuffie-service
+      description: API for the Stuffie Vriendenboek (stuffed animal registry)
+      header-api-keys:
+        - name: x-authorization
+          key-id: api-key
+          description: x-authorization header (Bearer <access token>)
+    security:
+      unauthenticated-routes:
+        - /v1/shared/**
+      authorization:
+        issuer: ${OIDC_ISSUER}
+        audience: ${OIDC_CLIENT_ID}
+        jwks:
+          refresh-interval: 0 0 0 * * *
+          uri: ${JWKS_URL}
+  privacy:
+    sub-hash-salt: ${SUB_HASH_SALT}
+  storage:
+    driver: ${STORAGE_DRIVER:s3}
+    local-dir: ${STORAGE_LOCAL_DIR:./data/photos}
+    s3:
+      endpoint: ${S3_ENDPOINT:}
+      region: ${S3_REGION:garage}
+      bucket: ${S3_BUCKET:stuffie-photos}
+      access-key: ${S3_ACCESS_KEY:}
+      secret-key: ${S3_SECRET_KEY:}
+      force-path-style: ${S3_FORCE_PATH_STYLE:true}
+
+spring:
+  application:
+    name: stuffie-service
+  jpa:
+    hibernate:
+      ddl-auto: update
+  datasource:
+    url: ${JDBC_URL}
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+server.port: 8080
+
+management:
+  endpoint.health.probes.enabled: true # /actuator/health/{liveness,readiness} for the k8s probes
+  endpoints.web.exposure.include: health

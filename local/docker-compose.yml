@@ -1,0 +1,10 @@
+# Postgres for local development: `docker compose -f local/docker-compose.yml up -d`
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: stuffie
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"

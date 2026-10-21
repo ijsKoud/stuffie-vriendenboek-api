@@ -26,7 +26,7 @@ class PhotoFacade(
         val photo = photoService.upload(userId, file.bytes)
         logger.info("Stored photo=${photo.id} for user=$userId")
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(PhotoUploadResponse(photo.id!!))
+        return ResponseEntity.status(HttpStatus.CREATED).body(PhotoUploadResponse(photo.id))
     }
 
     fun get(

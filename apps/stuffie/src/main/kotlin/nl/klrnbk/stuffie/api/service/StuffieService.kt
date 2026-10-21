@@ -91,6 +91,8 @@ class StuffieService(
         if (request.removePhoto && request.photoId != null) throw BadRequestException("Use either photoId or removePhoto, not both.")
 
         val existing = ownedStuffie(ownerSub, id)
+        // Read before saving: merging the copy writes its state into the managed `existing` instance.
+        val previousPhotoId = existing.photoId
         request.photoId?.let { photoService.assertOwned(ownerSub, it) }
 
         val photoId =
@@ -116,7 +118,7 @@ class StuffieService(
                     updatedAt = Instant.now(),
                 ),
             )
-        existing.photoId?.takeIf { it != photoId }?.let(photoService::delete)
+        previousPhotoId?.takeIf { it != photoId }?.let(photoService::delete)
 
         return toDetails(listOf(saved)).first()
     }

@@ -2,8 +2,6 @@ package nl.klrnbk.stuffie.datasource.models
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
@@ -11,10 +9,10 @@ import java.time.Instant
 @Entity
 @Table(name = "photos")
 data class PhotoModel(
+    /** Assigned by the service: the id is part of the storage key, which is written before the row. */
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id")
-    var id: String?,
+    val id: String,
 
     @Column(name = "owner_sub", nullable = false)
     val ownerSub: String,

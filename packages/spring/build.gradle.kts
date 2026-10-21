@@ -9,6 +9,7 @@ dependencies {
     api("org.jetbrains.kotlin:kotlin-reflect")
     api("org.springframework.boot:spring-boot-starter-webmvc")
     api("org.springframework.boot:spring-boot-starter-validation")
+    api("tools.jackson.module:jackson-module-kotlin")
     api("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")

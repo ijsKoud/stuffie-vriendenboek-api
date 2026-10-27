@@ -30,5 +30,6 @@ jobs:
           source_repo_path: ${{ env.TEMPLATE_REPO }}
           source_gh_token: ${{ steps.app-token.outputs.token }}
           target_gh_token: ${{ steps.app-token.outputs.token }}
+          git_user_name: "versioning-release-bot[bot]"
           pr_title: "chore: sync with template"
           pr_commit_msg: "chore: sync with template"

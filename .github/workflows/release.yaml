@@ -56,7 +56,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Image name
-        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}-${{ matrix.service }}" >> "$GITHUB_ENV"
+        env:
+          PROJECT_NAME: ${{ vars.PROJECT_NAME }} # optional: pins the image prefix when it differs from the repo name
+        run: |
+          PROJECT=${PROJECT_NAME:-${GITHUB_REPOSITORY#*/}}
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${PROJECT,,}-${{ matrix.service }}" >> "$GITHUB_ENV"
       - uses: docker/build-push-action@v7
         with:
           context: .

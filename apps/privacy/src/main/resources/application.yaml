@@ -1,0 +1,43 @@
+stuffie:
+  spring:
+    swagger:
+      title: stuffie-privacy-service
+      description: API for GDPR requests related to the the Stuffie Vriendenboek (stuffed animal registry)
+      header-api-keys:
+        - name: x-authorization
+          key-id: api-key
+          description: x-authorization header (Bearer <access token>)
+        - name: x-api-key
+          key-id: scheduled-api-key
+          description: x-api-key header (the scheduler's key)
+    security:
+      unauthenticated-routes:
+        - /v1/scheduled/** # no user token: ScheduledTasksFacade checks the x-api-key instead
+      authorization:
+        issuer: ${OIDC_ISSUER}
+        audience: ${OIDC_CLIENT_ID}
+        jwks:
+          refresh-interval: 0 0 0 * * *
+          uri: ${JWKS_URL}
+  privacy:
+    sub-hash-salt: ${SUB_HASH_SALT}
+    internal-api-key: ${INTERNAL_API_KEY}
+    scheduled-api-key: ${SCHEDULED_API_KEY}
+    platforms:
+      stuffies: ${STUFFIES_URL}
+      photos: ${PHOTOS_URL}
+
+spring:
+  application:
+    name: stuffie-privacy-service
+  jpa:
+    hibernate:
+      ddl-auto: update
+  datasource:
+    url: ${JDBC_URL}
+
+server.port: 8080
+
+management:
+  endpoint.health.probes.enabled: true # /actuator/health/{liveness,readiness} for the k8s probes
+  endpoints.web.exposure.include: health

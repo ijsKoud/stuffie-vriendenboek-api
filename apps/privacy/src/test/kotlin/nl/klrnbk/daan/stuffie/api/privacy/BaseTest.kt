@@ -30,6 +30,10 @@ import kotlin.test.BeforeTest
 abstract class BaseTest {
     @Autowired lateinit var platformClient: MockPlatformClient
 
+    @Autowired lateinit var fakeConfiguration: FakeConfiguration
+
+    fun token(sub: String) = fakeConfiguration.token(sub)
+
     @BeforeTest
     fun cleanSlate() {
         platformClient.forgetRequests()

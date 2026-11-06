@@ -1,0 +1,6 @@
+package nl.klrnbk.spring
+
+import org.springframework.boot.autoconfigure.SpringBootApplication
+
+@SpringBootApplication
+annotation class StuffieSpringApplicationAnnotation

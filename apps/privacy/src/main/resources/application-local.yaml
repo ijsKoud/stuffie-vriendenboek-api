@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/stuffie?user=postgres&password=postgres
+
+server:
+  port: 8083
+
+stuffie:
+  spring:
+    security:
+      authorization:
+        issuer: http://localhost:4010
+        audience: stuffie-vriendenboek
+        jwks:
+          uri: http://localhost:4010/jwks
+  privacy:
+    sub-hash-salt: dev-salt-change-me
+    internal-api-key: dev-internal-key
+    scheduled-api-key: dev-scheduled-key
+    platforms:
+      stuffies: http://localhost:8082
+      photos: http://localhost:8084

@@ -1,0 +1,2 @@
+nl.klrnbk.spring.swagger.config.SwaggerConfiguration
+nl.klrnbk.spring.GlobalControllerAdvice

@@ -1,7 +1,7 @@
 # Postgres for local development: `docker compose -f local/docker-compose.yml up -d`
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_DB: stuffie
       POSTGRES_USER: postgres

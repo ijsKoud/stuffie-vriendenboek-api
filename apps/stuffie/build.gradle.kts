@@ -8,7 +8,7 @@ dependencies {
     implementation(project(":packages:spring"))
     implementation(project(":packages:security-idp"))
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("software.amazon.awssdk:s3:2.57.1")
+    implementation("software.amazon.awssdk:s3:2.59.1")
     implementation("net.coobird:thumbnailator:0.4.21")
     runtimeOnly("org.postgresql:postgresql")
 
